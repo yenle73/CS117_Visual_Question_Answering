@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VQA Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            display: flex;
+        }
+        .column {
+            flex: 1;
+            padding: 20px;
+        }
+        .form-column {
+            border-right: 1px solid #ccc;
+        }
+        .results-column {
+            padding-left: 20px;
+        }
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .form-row label {
+            margin-right: 10px;
+        }
+        .form-row input[type="file"] {
+            flex: 0.3;
+        }
+        .form-row button {
+            margin-left: 10px;
+        }
+        .form-row:last-child {
+            margin-top: 10px;
+        }
+        .results {
+            margin-top: 20px;
+        }
+        .answer {
+            font-weight: bold;
+        }
+        #uploaded-image {
+            max-width: 100%;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="column form-column">
+        <h1>Visual Question Answering</h1>
+        <form id="vqa-form">
+            <div class="form-row">
+                <label for="image">Upload Image:</label>
+                <input type="file" id="image" accept="image/*" required>
+                <button type="button" id="load-image-button">Load Image</button>
+            </div>
+            <div class="form-row">
+                <label for="question">Enter Question:</label>
+                <input type="text" id="question" required>
+                <button type="submit">Submit</button>
+            </div>
+        </form>
+
+        <img id="uploaded-image" src="" alt="Uploaded Image">
+    </div>
+    <div class="column results-column">
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        document.getElementById('load-image-button').addEventListener('click', function() {
+            const imageInput = document.getElementById('image');
+            const uploadedImage = document.getElementById('uploaded-image');
+
+            if (imageInput.files && imageInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImage.src = e.target.result;
+                }
+                reader.readAsDataURL(imageInput.files[0]);
+            }
+        });
+
+        document.getElementById('vqa-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            
+            const imageInput = document.getElementById('image');
+            const questionInput = document.getElementById('question');
+            const resultsDiv = document.getElementById('results');
+
+            // Clear previous results
+            resultsDiv.innerHTML = '';
+
+            const formData = new FormData();
+            formData.append('image', imageInput.files[0]);
+            formData.append('question', questionInput.value);
+
+            try {
+                const response = await fetch('/predict/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                const predictedAnswer = document.createElement('p');
+                predictedAnswer.innerHTML = `<span class="answer">Predicted Answer:</span> ${result.predicted_answer} (Probability: ${(result.predicted_probability * 100).toFixed(2)}%)`;
+                resultsDiv.appendChild(predictedAnswer);
+
+                const allAnswersList = document.createElement('ul');
+                result.all_answers.forEach(answer => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${answer.answer}: ${(answer.probability * 100).toFixed(2)}%`;
+                    allAnswersList.appendChild(listItem);
+                });
+                resultsDiv.appendChild(allAnswersList);
+            } catch (error) {
+                console.error('Error:', error);
+                resultsDiv.textContent = 'An error occurred while processing your request.';
+            }
+        });
+    </script>
+</body>
+</html>
